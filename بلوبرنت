@@ -1,0 +1,830 @@
+1️⃣ Flow تسجيل الدخول والتسجيل + التوجيه حسب الدور
+
+الخطوات:
+
+التسجيل (Sign Up)
+
+المستخدم يدخل بيانات: الاسم، رقم الهاتف، البريد الإلكتروني، كلمة المرور، دور (role) اختياري لو admin معين.
+
+API: POST /api/auth/signup → تحفظ بيانات المستخدم في قاعدة البيانات (users table/collection)
+
+يُنشأ تلقائياً الحقل:
+
+roles: ["player"], 
+primaryRole: "player",
+stadiums: []
+
+
+Password hashed + JWT generated (optional)
+
+تسجيل الدخول (Login)
+
+المستخدم يدخل البريد/الهاتف + كلمة المرور
+
+API: POST /api/auth/login
+
+التحقق من صحة الحساب وكلمة المرور
+
+عند النجاح → JWT/session token
+
+التوجيه بعد تسجيل الدخول
+
+API check: GET /api/auth/me → ترجع بيانات المستخدم + roles + stadiums
+
+Redirect logic:
+
+إذا primaryRole = player → /player
+إذا primaryRole = staff → /staff
+إذا primaryRole = owner → /owner
+إذا primaryRole = admin → /admin
+
+
+اختياري: لو user له أكثر من role → تظهر صفحة اختيار الدور
+
+Load البيانات من DB
+
+كل صفحة dashboard تقوم بعمل fetch لبيانات المستخدم من DB: bookings, stadiums, requests, notifications
+
+2️⃣ Flow الصفحة الرئيسية (Landing page)
+
+المستخدم يفتح / → Landing page
+
+يعرض: Navbar، Hero section، خانتين (ملاعب كورة / بادِل)
+
+وظائف مباشرة:
+
+Search → API GET /api/stadiums?query=... → autocomplete
+
+زر “أضف ملعب” → external Google Form
+
+زر “عرض كل ملاعب الكرة” → /stadiums?type=football
+
+3️⃣ Flow قائمة الملاعب (Stadium Listing + Filter)
+
+المستخدم يفتح /stadiums?type=football
+
+Client-side fetch: GET /api/stadiums?type=football
+
+يتم عرض الكروت Grid
+
+StadiumCard component → يقيس slots availability
+
+Multi-day selector → DayChips component
+
+لكل يوم → SlotButton تظهر الساعات المتاحة
+
+حجز سريع:
+
+User يضغط على slot → يظهر BookingModal
+
+يعرض: ملعب، تاريخ، ساعة، السعر، العربون
+
+المستخدم يدخل بياناته → Next step → submit
+
+API: POST /api/bookings/create
+
+Backend:
+
+تحقق atomic: Slot متاحة؟
+
+إنشاء booking record → status: pending_payment أو confirmed
+
+4️⃣ Flow الدفع (Payment Flow)
+
+إذا العربون > 0 → يفتح /payment/{bookingId}
+
+خيارات الدفع:
+
+Online (Paymob) → create order → redirect
+
+Code / Voucher → API validate → خصم أو confirm booking
+
+بعد الدفع:
+
+API Webhook → mark booking as confirmed
+
+Update slots availability
+
+Notifications sent to player, owner, staff
+
+إذا العربون = 0 → booking confirmed فوراً
+
+5️⃣ Flow طلب لاعبين ("لاعبوني معاكم")
+
+User يضغط على "اطلب لاعبين"
+
+Modal / Form يظهر: عدد اللاعبين، الفئة العمرية، المستوى، ملاحظات
+
+Submit → POST /api/play-requests → creates record
+
+Player feed: /play-search
+
+يظهر play requests كـ cards
+
+أي لاعب ينضم → POST /api/play-requests/{id}/join
+
+Backend: update joiners + notify creator
+
+Staff / Owner:
+
+يشوف requests → Accept / Reject
+
+Accept → update status: closed أو remaining players
+
+Reject → notification to joiners
+
+6️⃣ Flow لوحة التحكم حسب الدور
+Player Dashboard
+
+/player
+
+MyBookingsList → fetch /api/users/{id}/bookings
+
+PlayRequests → fetch /api/player/requests
+
+NotificationsList → fetch /api/player/notifications
+
+Checkout/Payments for pending bookings
+
+Staff Dashboard
+
+/staff
+
+Show list of stadiums user.stadiums
+
+For each stadium → dynamic pages:
+
+/staff/stadiums/[id]/dashboard → show bookings + stats
+
+/staff/stadiums/[id]/bookings → manage bookings (create, cancel)
+
+/staff/stadiums/[id]/players-requests → manage requests
+
+Owner Dashboard
+
+/owner
+
+Stadiums list → select stadium
+
+Stadium management: edit name, features, price, assign staff
+
+Analytics: bookings, revenue, occupancy
+
+Admin Dashboard
+
+/admin
+
+Global reports → /api/admin/reports
+
+Manage users → assign roles, stadiums
+
+Manage codes / vouchers
+
+Global stats → bookings, payments, cancelled, top hours
+
+7️⃣ Edge Cases & Validation
+
+Concurrent bookings → DB transaction / atomic check
+
+Expiring pending bookings → cron job cleanup
+
+Voucher code → atomic decrement to prevent double spend
+
+Payment callback validation → server-side only
+
+Role switching if multiple roles
+
+Form validation: phone, name, email, slots availability
+
+باختصار، الـ flow يحافظ على التوجه من Landing → Stadiums → Booking → Payment → Confirmation → Dashboard حسب الدور وكل خطوة تعتمد على بيانات DB و API calls مع حماية الصلاحيات والـ validation.
+
+Blueprint كامل لمشروع "احجزلي" باستخدام Flutter، بدون ذكر React أو أي تقنيات ويب، مع عدد الملفات المناسب، الهيكل، ووصف تفصيلي للوظائف في كل ملف. الهدف: بناء تطبيق جوال شامل يعمل على Android وiOS.
+
+1️⃣ الهيكل المقترح للتطبيق (Flutter)
+ehgezly_flutter/
+  pubspec.yaml
+  lib/
+    main.dart                     # Entry point
+    app.dart                      # MaterialApp + Routes + Theme
+    routes/
+      app_routes.dart             # كل المسارات الثابتة والديناميكية
+    models/
+      user.dart
+      stadium.dart
+      booking.dart
+      play_request.dart
+      voucher.dart
+    services/
+      auth_service.dart           # تسجيل، تسجيل دخول، JWT/session
+      booking_service.dart        # CRUD الحجوزات
+      stadium_service.dart        # Fetch الملاعب، تفاصيل الملعب
+      payment_service.dart        # عمليات الدفع (Paymob / Voucher)
+      play_request_service.dart   # CRUD طلبات اللاعبين
+      notification_service.dart   # إشعارات داخل التطبيق
+      api_client.dart             # HTTP Client مشترك
+    providers/
+      auth_provider.dart          # Provider لإدارة بيانات المستخدم وحالة تسجيل الدخول
+      stadium_provider.dart       # State management لقائمة الملاعب والفلترة
+      booking_provider.dart       # State management للحجوزات
+      play_request_provider.dart  # State management للطلبات
+      payment_provider.dart       # حالة الدفع
+    screens/
+      splash_screen.dart
+      auth/
+        login_screen.dart
+        signup_screen.dart
+      landing_screen.dart
+      stadiums/
+        stadiums_list_screen.dart
+        stadium_detail_screen.dart
+      player/
+        dashboard_screen.dart
+        bookings_screen.dart
+        notifications_screen.dart
+        profile_screen.dart
+        create_request_screen.dart
+        play_detail_screen.dart
+      staff/
+        dashboard_screen.dart
+        stadium_dashboard_screen.dart
+        bookings_screen.dart
+        players_requests_screen.dart
+      owner/
+        dashboard_screen.dart
+        stadium_dashboard_screen.dart
+      admin/
+        dashboard_screen.dart
+        reports_screen.dart
+        users_screen.dart
+        codes_screen.dart
+    widgets/
+      common/
+        app_bar.dart
+        bottom_nav.dart
+        button.dart
+        card.dart
+        modal.dart
+        input_field.dart
+        day_chips.dart
+        slot_button.dart
+      stadiums/
+        stadium_card.dart
+        slot_picker.dart
+      bookings/
+        booking_card.dart
+        booking_modal.dart
+      player/
+        request_card.dart
+        join_modal.dart
+        create_request_modal.dart
+        history_list.dart
+        notifications_list.dart
+      staff/
+        staff_card.dart
+        staff_form.dart
+        attendance_toggle.dart
+      owner/
+        owner_stats_card.dart
+        field_card.dart
+        field_form.dart
+      admin/
+        create_code_modal.dart
+        user_edit_modal.dart
+
+
+✅ عدد الملفات التقريبي: 70–80 ملف (شامل كل الشاشات، Widgets، Providers، Services، Models).
+
+2️⃣ وصف تفصيلي للوظائف لكل ملف
+2.1 Entry & App
+ملف	وظيفة
+main.dart	Entry point: runApp(), يحمّل App()
+app.dart	MaterialApp + theme + routes + global providers
+routes/app_routes.dart	تعريف كل المسارات: Landing, Auth, Player, Staff, Owner, Admin
+2.2 Models
+Model	وظيفة
+user.dart	id, name, phone, email, roles, stadiums[], primaryRole
+stadium.dart	id, name, type (football/paddle), features[], price, deposit, slots[], ownerId, staffIds
+booking.dart	id, stadiumId, date, slot, status, price, depositPaid, userId, playersRequested, playersJoined[], notes
+play_request.dart	id, stadiumId, bookingId(optional), requiredPlayers, ageGroup, level, status, joiners[]
+voucher.dart	code, type (discount/full), amount, usesLeft, expiry
+2.3 Services
+Service	وظيفة
+auth_service.dart	تسجيل دخول/خروج، تسجيل مستخدم، حفظ JWT/session، role check
+stadium_service.dart	جلب قائمة الملاعب مع فلتر، تفاصيل الملعب، availability slots
+booking_service.dart	إنشاء/تعديل/إلغاء الحجز، تحقق atomic من slot availability
+payment_service.dart	Paymob: إنشاء order, verify callback, Voucher validation
+play_request_service.dart	CRUD طلبات اللاعبين، join/leave requests
+notification_service.dart	إرسال إشعارات in-app و push notifications
+api_client.dart	HTTP client مشترك لكل الخدمات، error handling موحد
+2.4 Providers (State Management)
+Provider	وظيفة
+auth_provider.dart	إدارة حالة تسجيل الدخول، role-based navigation، حفظ بيانات المستخدم
+stadium_provider.dart	إدارة state الملاعب، الفلترة، pagination، search
+booking_provider.dart	إدارة state الحجوزات: pending, confirmed, cancelled
+play_request_provider.dart	إدارة state طلبات اللاعبين، joiners، status update
+payment_provider.dart	إدارة عملية الدفع: loading, success, failure
+2.5 Screens
+Auth
+Screen	وظيفة
+login_screen.dart	Form login, validation, role-based redirect
+signup_screen.dart	Form signup, validation, default role, redirect بعد تسجيل
+Landing
+Screen	وظيفة
+landing_screen.dart	Hero banner، خانتين ملاعب، search bar، CTA “أضف ملعب”، navigation للملاعب
+Stadiums
+Screen	وظيفة
+stadiums_list_screen.dart	Grid of stadiums, filter sidebar, pagination, search
+stadium_detail_screen.dart	Multi-day slots, slot availability, booking modal trigger
+Player
+Screen	وظيفة
+dashboard_screen.dart	Summary upcoming bookings, notifications count
+bookings_screen.dart	List of player's bookings with status, cancel, pay remaining
+notifications_screen.dart	List of notifications (booking confirmed, play requests)
+profile_screen.dart	Edit user profile, password change
+create_request_screen.dart	Create player request modal: number, age, level, notes
+play_detail_screen.dart	Join play request, see details, leave option
+Staff
+Screen	وظيفة
+dashboard_screen.dart	Overview of assigned stadiums, quick stats
+stadium_dashboard_screen.dart	Stats, occupancy, bookings summary
+bookings_screen.dart	Manage stadium bookings: create, cancel, confirm
+players_requests_screen.dart	Approve/reject player requests for stadium
+Owner
+Screen	وظيفة
+dashboard_screen.dart	Overview all stadiums, quick stats, earnings
+stadium_dashboard_screen.dart	Manage stadium bookings, staff assignment, statistics
+Admin
+Screen	وظيفة
+dashboard_screen.dart	Global stats overview
+reports_screen.dart	Detailed reports per stadium / time period
+users_screen.dart	Manage users: add, edit roles, delete
+codes_screen.dart	Manage vouchers/codes: create, edit, delete
+2.6 Widgets
+Common UI
+Widget	وظيفة
+app_bar.dart	AppBar مع Nav, search, user info
+bottom_nav.dart	BottomNavigationBar للتنقل بين الشاشات الرئيسية
+button.dart	زر موحد لكل التطبيق، states: loading, disabled
+card.dart	Generic card لإعادة الاستخدام
+modal.dart	Generic modal popup لأي محتوى
+input_field.dart	Form input with validation
+day_chips.dart	Day selector for booking
+slot_button.dart	Slot button state: available/disabled/booked
+Stadiums
+Widget	وظيفة
+stadium_card.dart	Card عرض ملخص الملعب في القائمة
+slot_picker.dart	Selector لساعات الملعب حسب اليوم
+Bookings
+Widget	وظيفة
+booking_card.dart	Card عرض الحجز في قائمة الحجوزات
+booking_modal.dart	Modal لإنشاء/تأكيد الحجز مع الدفع
+Player
+Widget	وظيفة
+request_card.dart	Card عرض طلبات اللاعبين
+join_modal.dart	Modal للانضمام للطلب
+create_request_modal.dart	Modal إنشاء طلب جديد
+history_list.dart	List view حجوزات سابقة
+notifications_list.dart	List view إشعارات المستخدم
+Staff
+Widget	وظيفة
+staff_card.dart	Card عرض الموظف ومعلوماته
+staff_form.dart	Form لتعديل الموظف
+attendance_toggle.dart	Toggle لتغيير حضور الموظف
+Owner
+Widget	وظيفة
+owner_stats_card.dart	Card عرض إحصائيات الملعب
+field_card.dart	Card عرض تفاصيل الملعب
+field_form.dart	Form تعديل الملعب
+Admin
+Widget	وظيفة
+create_code_modal.dart	Modal لإنشاء كوبون/كود خصم
+user_edit_modal.dart	Modal لتعديل بيانات المستخدم
+
+هذا Blueprint شامل للتطبيق بالـ Flutter، عدد الملفات حوالي 80 ملف، يغطي كل الوظائف الأساسية والتفاعلية:
+
+تسجيل/تسجيل دخول + role-based routing
+
+Landing page + الملاعب + فلترة
+
+Player dashboard + حجوزات + طلبات لاعبين + notifications
+
+Staff dashboard + إدارة الحجوزات + play requests
+
+Owner dashboard + إدارة الملعب + staff
+
+Admin dashboard + users + vouchers + reports
+
+كل الخدمات الخلفية في services + state management عبر providers
+
+Widgets مرنة لإعادة الاستخدام
+
+1️⃣ Flow المستخدم العام
+1.1 Splash Screen
+
+يظهر عند فتح التطبيق.
+
+يتحقق مما إذا كان المستخدم مسجل دخول سابقًا (JWT/session).
+
+إذا كان مسجل دخول → توجيه حسب الدور الأساسي.
+
+إذا لم يكن مسجل → توجيه لـ Login Screen.
+
+1.2 Auth Flow
+Login Screen
+
+المستخدم يدخل:
+
+رقم الهاتف / البريد الإلكتروني.
+
+كلمة المرور.
+
+Validation:
+
+حقل إلزامي، طول مناسب، رقم محلي/ +20 format للهاتف.
+
+عند الضغط على Login:
+
+يرسل طلب إلى AuthService.login().
+
+إذا نجاح → احفظ JWT + بيانات المستخدم + role.
+
+إذا فشل → عرض رسالة خطأ داخل UI.
+
+توجيه بعد تسجيل الدخول:
+
+حسب primaryRole في بيانات المستخدم:
+
+Player → /player/dashboard
+
+Staff → /staff/dashboard
+
+Owner → /owner/dashboard
+
+Admin → /admin/dashboard
+
+Signup Screen
+
+نفس الفلو، مع إضافة بيانات:
+
+الاسم الكامل.
+
+رقم الهاتف.
+
+البريد الإلكتروني (اختياري).
+
+كلمة المرور.
+
+بعد التسجيل، تلقائي تسجيل دخول → redirect حسب role.
+
+2️⃣ Landing / Stadium Browsing Flow
+Landing Screen
+
+Hero section: CTA “ابحث عن ملعب”، زر “أضف ملعب”.
+
+خانتين ملاعب: Football / Paddle → navigate إلى Stadiums List مع type filter.
+
+Search Bar: autocomplete → fetch من API → display النتائج.
+
+Add Stadium Button → فتح Google Form خارجي.
+
+Stadiums List Screen
+
+Fetch الملاعب حسب type وفلتر المدينة / السعر / المميزات.
+
+Display: Grid of StadiumCard.
+
+لكل StadiumCard:
+
+صورة الملعب، اسم، نوع، مميزات.
+
+زر Directions → Google Maps.
+
+Multi-day chips → عند اختيار اليوم يظهر Slot Buttons.
+
+Slots:
+
+إذا متاح → زر قابل للنقر.
+
+إذا محجوز → زر disabled أو مخفي.
+
+3️⃣ Booking Flow
+3.1 اختيار Slot
+
+المستخدم يضغط على ساعة متاحة.
+
+يظهر BookingModal:
+
+تفاصيل الملعب، اليوم، الساعة، السعر، العربون.
+
+عدد اللاعبين (اختياري)، ملاحظات (اختياري).
+
+زر “التالي: بيانات الحاجز”.
+
+3.2 بيانات الحاجز
+
+Form:
+
+الاسم الكامل.
+
+رقم الهاتف.
+
+البريد الإلكتروني (اختياري).
+
+زر “تأكيد وادفع العربون” أو “احجز فورًا” (إذا العربون=0).
+
+3.3 معالجة الحجز
+
+Frontend:
+
+يرسل بيانات Booking إلى BookingService.createBooking().
+
+Backend:
+
+يتحقق من توافر Slot (atomic check).
+
+إذا تم حجز الساعة بالفعل → Error → UI يظهر رسالة toast.
+
+إذا العربون > 0:
+
+Redirect/Modal → PaymentPage:
+
+Online: Paymob → توليد order → callback verification.
+
+Code/Voucher → validate → confirm booking.
+
+إذا العربون = 0:
+
+Booking status → confirmed مباشرة.
+
+3.4 بعد الحجز
+
+UI: confirmation modal مع bookingId و share link.
+
+تحديث قائمة الحجوزات في Player Dashboard.
+
+إشعار: Player + Owner + Staff.
+
+4️⃣ Player Dashboard Flow
+
+عرض قائمة الحجوزات القادمة و statuses:
+
+Pending payment → زر دفع باقي العربون.
+
+Confirmed → تفاصيل الحجز.
+
+Cancelled → رسالة مناسبة.
+
+عرض طلبات اللاعبين:
+
+Join / Leave requests.
+
+Create request modal.
+
+Notifications List:
+
+Booking confirmed.
+
+Players joined/approved.
+
+Request accepted/rejected.
+
+Profile screen:
+
+تعديل بيانات شخصية.
+
+تغيير كلمة المرور.
+
+5️⃣ Staff Flow
+
+Dashboard:
+
+قائمة الملاعب المسندة للموظف.
+
+Quick stats لكل ملعب.
+
+Stadium Dashboard:
+
+عرض الحجوزات الحالية.
+
+إدارة الحضور للموظفين (AttendanceToggle).
+
+Bookings Screen:
+
+قبول/رفض الحجوزات.
+
+إنشاء حجز نيابة عن لاعب.
+
+Cancel / Confirm booking.
+
+Players Requests Screen:
+
+Accept / Reject requests.
+
+تحديث حالة الطلب (open/partial/closed).
+
+6️⃣ Owner Flow
+
+Dashboard:
+
+قائمة الملاعب الخاصة بالمالك.
+
+Quick stats، إحصائيات الحجوزات، الإيرادات.
+
+Stadium Dashboard:
+
+إدارة الحجوزات.
+
+Assign / Remove staff لكل ملعب.
+
+تعديل تفاصيل الملعب.
+
+عرض occupancy و revenue charts.
+
+7️⃣ Admin Flow
+
+Dashboard:
+
+Global stats overview.
+
+Total bookings, total revenue, occupancy rates.
+
+Users Screen:
+
+CRUD للمستخدمين.
+
+Assign roles.
+
+Codes/Vouchers:
+
+Create, edit, expire.
+
+Track usage.
+
+Reports:
+
+Export CSV / PDF.
+
+Filter by stadium / period.
+
+8️⃣ Payment Flow
+
+PaymentPage:
+
+Show breakdown: total, deposit, remaining.
+
+Methods: Online (Paymob), Code/Voucher.
+
+After Payment Success:
+
+Backend webhook confirms booking.
+
+Update booking status → confirmed.
+
+Payment Failure:
+
+Show error modal → retry button.
+
+9️⃣ Notifications & Edge Cases
+
+Concurrent bookings:
+
+Lock + atomic transaction على backend.
+
+Pending booking expiry:
+
+Timer 10 دقائق → إذا لم يدفع → revert slot availability.
+
+Voucher atomic decrement لمنع double-spend.
+
+Role switching إذا user has multiple roles.
+
+Soft cancel vs hard cancel → refund policy.
+
+10️⃣ Summary Flow Diagram (Textual)
+[App Launch]
+      |
+      v
+[Splash Screen] -> Check Session
+      |                     \
+      v                      \
+   Logged In?                  No
+      |                        \
+      v                         \
+ [Role-based Redirect]          [Login/Signup]
+      |
+      v
+-------------------------------
+| Player | Staff | Owner | Admin |
+-------------------------------
+Player Flow:
+    Dashboard -> Stadium List -> Select Day -> Select Slot
+    -> Booking Modal -> Payment -> Confirmation -> Notifications
+Staff Flow:
+    Dashboard -> Stadiums -> Bookings -> Accept/Reject Requests
+Owner Flow:
+    Dashboard -> Stadiums -> Staff Management -> Stats
+Admin Flow:
+    Dashboard -> Users Management -> Codes -> Reports
+
+
+لو تحب، أقدر أرسملك Flowchart بصري كامل بالأسهم لكل خطوة + الحالات المختلفة بحيث يكون جاهز كـ مرجع لتطبيق Flutter بدون أي لبس.
+
+تحب أعمله؟
+
+You said:
+هل كتبت كل النظام اللي انا عايزه واتكلمنا عليه في الشاتات القديمه
+ChatGPT said:
+
+أيوه بالضبط، كل النظام اللي اتكلمنا عليه في الشاتات القديمة موجود دلوقتي في الـ Flow التفصيلي اللي فوق، بما في ذلك:
+
+Auth & Role-based Routing
+
+تسجيل دخول/تسجيل جديد
+
+توجيه تلقائي حسب الدور (player, staff, owner, admin)
+
+حماية الصفحات حسب الدور
+
+Landing & Stadium Browsing
+
+بحث عن ملاعب، عرض ملاعب كرة/بادِل
+
+Multi-day selector + slots
+
+عرض التفاصيل + زر Directions
+
+Booking Flow
+
+اختيار اليوم والساعة
+
+Modal/Stepper بيانات الحاجز
+
+دفع العربون / دفع كامل
+
+حالات الحجز: pending, confirmed, cancelled
+
+إشعارات + تحديث قاعدة البيانات
+
+Player Dashboard
+
+قائمة الحجوزات
+
+طلب لاعبين والانضمام لهم
+
+Notifications
+
+Profile & change password
+
+Staff Flow
+
+Dashboard لكل ملاعب الموظف
+
+إدارة الحجوزات
+
+قبول/رفض طلبات اللاعبين
+
+إدارة حضور الموظفين
+
+Owner Flow
+
+Dashboard لكل ملاعب المالك
+
+إدارة staff لكل ملعب
+
+تعديل تفاصيل الملاعب
+
+إحصائيات الحجوزات والإيرادات
+
+Admin Flow
+
+Dashboard شامل لجميع الملاعب والمستخدمين
+
+إدارة الكوبونات/الكودات
+
+تقارير CSV/PDF
+
+إدارة المستخدمين
+
+Payment Flow
+
+Online عبر Paymob
+
+Code / Voucher
+
+تأكيد الدفع، تحديث booking status
+
+حالات failure / retry
+
+Notifications & Edge Cases
+
+Concurrent booking prevention
+
+Pending booking expiry
+
+Voucher atomic decrement
+
+Role switching UI
+
+Soft vs hard cancel
+
+يعني الـ Flow اللي كتبته يغطي كل الوظائف اللي اتكلمنا عنها سابقاً، بما فيها اللوحات المختلفة والحجز، الدفع، الطلبات، والإشعارات.
