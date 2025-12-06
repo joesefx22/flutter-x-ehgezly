@@ -1,0 +1,1044 @@
+وثائق النظام - تطبيق "احجزلي" للفلتر
+ملف README - نظرة عامة على النظام
+وصف المشروع
+تطبيق "احجزلي" هو منصة متكاملة لحجز الملاعب الرياضية (كرة القدم وبادل) وإدارة العمليات المرتبطة بها. يدعم التطبيق أربعة أدوار رئيسية: لاعب، موظف، مالك، ومدير نظام.
+
+المميزات الرئيسية
+تسجيل دخول متعدد الأدوار مع توجيه تلقائي
+
+تصفح الملاعب مع فلترة متقدمة واختيار مواعيد
+
+نظام حجز متكامل مع دفع عبر الإنترنت
+
+طلب لاعبين والانضمام للفرق
+
+لوحات تحكم مخصصة لكل دور
+
+إشعارات فورية وإدارة العمليات
+
+التقنيات المستخدمة
+الفرونت إند: Flutter (Android + iOS)
+
+إدارة الحالة: Provider
+
+التواصل مع الخادم: HTTP Client مع JWT
+
+الدفع: Paymob + كوبونات
+
+التنقل: Named Routes
+
+الهيكل التفصيلي للملفات والوظائف
+1. ملفات الدخول والتكوين الأساسي
+lib/main.dart
+الوظيفة: نقطة الدخول الرئيسية للتطبيق
+
+المحتوى:
+
+تهيئة التطبيق وتشغيل runApp()
+
+إعداد ProviderScope للتطبيق كامل
+
+تحميل App widget
+
+lib/app.dart
+الوظيفة: التكوين الأساسي للتطبيق
+
+المحتوى:
+
+MaterialApp مع ThemeData مخصص
+
+إعداد Routes عبر AppRoutes
+
+تعيين Providers العالمية (AuthProvider, BookingProvider, etc.)
+
+إعداد اتجاه النص RTL/LTR
+
+إدارة حالة الاتصال بالإنترنت
+
+lib/routes/app_routes.dart
+الوظيفة: تعريف وإدارة جميع مسارات التطبيق
+
+المسارات:
+
+/: Landing Screen
+
+/auth/login: تسجيل الدخول
+
+/auth/signup: التسجيل جديد
+
+/stadiums: قائمة الملاعب
+
+/stadiums/:id: تفاصيل الملعب
+
+/player/dashboard: لوحة اللاعب
+
+/player/bookings: حجوزات اللاعب
+
+/staff/dashboard: لوحة الموظف
+
+/owner/dashboard: لوحة المالك
+
+/admin/dashboard: لوحة المدير
+
+الحماية: Middleware للتحقق من الصلاحيات
+
+2. النماذج (Models)
+lib/models/user.dart
+الوظيفة: نموذج بيانات المستخدم
+
+الحقول:
+
+id: معرف فريد
+
+name: الاسم الكامل
+
+phone: رقم الهاتف
+
+email: البريد الإلكتروني
+
+roles: قائمة الأدوار (["player", "staff", "owner", "admin"])
+
+primaryRole: الدور الرئيسي
+
+stadiums: قائمة معرفات الملاعب المرتبطة
+
+fcmToken: token للإشعارات
+
+createdAt: تاريخ الإنشاء
+
+lib/models/stadium.dart
+الوظيفة: نموذج بيانات الملعب
+
+الحقول:
+
+id: معرف فريد
+
+name: اسم الملعب
+
+type: النوع (football/paddle)
+
+location: الموقع (lat, lng, address)
+
+features: المميزات (إضاءة، خلع، مقهى، etc.)
+
+pricePerHour: السعر بالساعة
+
+depositPercentage: نسبة العربون
+
+slots: جدول المواعيد
+
+ownerId: معرف المالك
+
+staffIds: قائمة معرفات الموظفين
+
+images: صور الملعب
+
+lib/models/booking.dart
+الوظيفة: نموذج بيانات الحجز
+
+الحقول:
+
+id: معرف فريد
+
+stadiumId: معرف الملعب
+
+userId: معرف المستخدم
+
+date: تاريخ الحجز
+
+slot: الوقت (startTime, endTime)
+
+status: الحالة (pending, confirmed, cancelled, completed)
+
+paymentStatus: حالة الدفع
+
+amount: المبلغ الكلي
+
+depositPaid: العربون المدفوع
+
+playersCount: عدد اللاعبين
+
+notes: ملاحظات إضافية
+
+cancelledAt: تاريخ الإلغاء
+
+cancelledBy: من قام بالإلغاء
+
+lib/models/play_request.dart
+الوظيفة: نموذج طلب لاعبين
+
+الحقول:
+
+id: معرف فريد
+
+stadiumId: معرف الملعب
+
+bookingId: معرف الحجز (اختياري)
+
+creatorId: معرف منشئ الطلب
+
+requiredPlayers: عدد اللاعبين المطلوبين
+
+ageGroup: الفئة العمرية
+
+level: المستوى (مبتدئ، متوسط، محترف)
+
+status: الحالة (open, partial, closed)
+
+joiners: قائمة المنضمين
+
+createdAt: تاريخ الإنشاء
+
+lib/models/voucher.dart
+الوظيفة: نموذج كوبون الخصم
+
+الحقول:
+
+code: الكود
+
+type: النوع (percentage, fixed)
+
+value: قيمة الخصم
+
+usesLeft: عدد مرات الاستخدام المتبقية
+
+expiryDate: تاريخ الانتهاء
+
+createdBy: منشئ الكود
+
+isActive: حالة النشاط
+
+3. الخدمات (Services)
+lib/services/api_client.dart
+الوظيفة: العميل HTTP الأساسي
+
+المهام:
+
+إضافة JWT تلقائياً للرؤوس
+
+معالجة الأخطاء الموحدة
+
+تحويل JSON
+
+إدارة timeouts
+
+تحديث token عند انتهاء الصلاحية
+
+lib/services/auth_service.dart
+الوظيفة: إدارة المصادقة
+
+الوظائف:
+
+signup(): تسجيل مستخدم جديد
+
+login(): تسجيل الدخول
+
+logout(): تسجيل الخروج
+
+getCurrentUser(): جلب بيانات المستخدم الحالي
+
+updateProfile(): تحديث الملف الشخصي
+
+changePassword(): تغيير كلمة المرور
+
+forgotPassword(): استعادة كلمة المرور
+
+lib/services/stadium_service.dart
+الوظيفة: إدارة عمليات الملاعب
+
+الوظائف:
+
+getStadiums(): جلب قائمة الملاعب مع فلترة
+
+getStadiumById(): جلب تفاصيل ملعب معين
+
+getAvailableSlots(): جلب المواعيد المتاحة
+
+searchStadiums(): بحث عن ملاعب
+
+getStadiumStats(): إحصائيات الملعب
+
+lib/services/booking_service.dart
+الوظيفة: إدارة عمليات الحجز
+
+الوظائف:
+
+createBooking(): إنشاء حجز جديد
+
+getUserBookings(): جلب حجوزات المستخدم
+
+cancelBooking(): إلغاء الحجز
+
+confirmBooking(): تأكيد الحجز
+
+checkSlotAvailability(): التحقق من توفر الموعد
+
+lib/services/payment_service.dart
+الوظيفة: إدارة عمليات الدفع
+
+الوظائف:
+
+createPaymentOrder(): إنشاء طلب دفع Paymob
+
+validateVoucher(): التحقق من صحة الكوبون
+
+processPayment(): معالجة الدفع
+
+getPaymentStatus(): جلب حالة الدفع
+
+refundPayment(): استرداد مبلغ
+
+lib/services/play_request_service.dart
+الوظيفة: إدارة طلبات اللاعبين
+
+الوظائف:
+
+createPlayRequest(): إنشاء طلب لاعبين
+
+getPlayRequests(): جلب الطلبات المتاحة
+
+joinPlayRequest(): الانضمام لطلب
+
+leavePlayRequest(): مغادرة الطلب
+
+updatePlayRequestStatus(): تحديث حالة الطلب
+
+lib/services/notification_service.dart
+الوظيفة: إدارة الإشعارات
+
+الوظائف:
+
+getNotifications(): جلب الإشعارات
+
+markAsRead(): تعليم كمقروء
+
+deleteNotification(): حذف إشعار
+
+sendNotification(): إرسال إشعار
+
+setupPushNotifications(): إعداد الإشعارات الدافعة
+
+4. مقدمي الحالة (Providers)
+lib/providers/auth_provider.dart
+الوظيفة: إدارة حالة المستخدم
+
+الحالة:
+
+user: بيانات المستخدم الحالي
+
+isAuthenticated: حالة المصادقة
+
+isLoading: حالة التحميل
+
+error: رسائل الخطأ
+
+الوظائف:
+
+login(): تسجيل دخول
+
+signup(): تسجيل جديد
+
+logout(): تسجيل خروج
+
+updateUser(): تحديث بيانات المستخدم
+
+switchRole(): تبديل الدور
+
+lib/providers/stadium_provider.dart
+الوظيفة: إدارة حالة الملاعب
+
+الحالة:
+
+stadiums: قائمة الملاعب
+
+selectedStadium: الملعب المختار
+
+filteredStadiums: الملاعب بعد التصفية
+
+selectedDate: التاريخ المختار
+
+selectedSlot: الموعد المختار
+
+الوظائف:
+
+loadStadiums(): تحميل الملاعب
+
+applyFilters(): تطبيق الفلاتر
+
+selectDate(): اختيار تاريخ
+
+selectSlot(): اختيار موعد
+
+clearSelection(): مسح الاختيارات
+
+lib/providers/booking_provider.dart
+الوظيفة: إدارة حالة الحجوزات
+
+الحالة:
+
+bookings: قائمة الحجوزات
+
+pendingBookings: الحجوزات المعلقة
+
+confirmedBookings: الحجوزات المؤكدة
+
+selectedBooking: الحجز المختار
+
+الوظائف:
+
+loadBookings(): تحميل الحجوزات
+
+createBooking(): إنشاء حجز
+
+cancelBooking(): إلغاء حجز
+
+confirmBooking(): تأكيد حجز
+
+updateBookingStatus(): تحديث حالة الحجز
+
+lib/providers/play_request_provider.dart
+الوظيفة: إدارة حالة طلبات اللاعبين
+
+الحالة:
+
+playRequests: قائمة الطلبات
+
+myPlayRequests: طلباتي
+
+joinedRequests: الطلبات المنضم لها
+
+الوظائف:
+
+loadPlayRequests(): تحميل الطلبات
+
+createPlayRequest(): إنشاء طلب
+
+joinPlayRequest(): الانضمام لطلب
+
+leavePlayRequest(): مغادرة طلب
+
+updateRequestStatus(): تحديث حالة الطلب
+
+5. الشاشات (Screens)
+أ. شاشات المصادقة
+lib/screens/auth/login_screen.dart
+الوظيفة: تسجيل الدخول
+
+العناصر:
+
+حقول إدخال: هاتف/بريد، كلمة مرور
+
+زر "تسجيل الدخول"
+
+رابط "نسيت كلمة المرور؟"
+
+رابط "إنشاء حساب جديد"
+
+المنطق:
+
+تحقق من صحة البيانات
+
+استدعاء AuthService.login()
+
+توجيه حسب الدور بعد النجاح
+
+lib/screens/auth/signup_screen.dart
+الوظيفة: إنشاء حساب جديد
+
+العناصر:
+
+حقول: اسم، هاتف، بريد، كلمة مرور، تأكيد كلمة المرور
+
+زر "إنشاء حساب"
+
+شروط وأحكام
+
+المنطق:
+
+التحقق من صحة البيانات
+
+التحقق من عدم وجود حساب بنفس الهاتف/البريد
+
+تعيين دور "player" افتراضي
+
+ب. الشاشات العامة
+lib/screens/landing_screen.dart
+الوظيفة: الصفحة الرئيسية
+
+الأقسام:
+
+شريط التنقل
+
+قسم Hero مع صورة وخلفية
+
+خانتين: ملاعب كرة، ملاعب بادل
+
+شريط البحث
+
+زر "أضف ملعب"
+
+قسم المميزات
+
+التفاعلات:
+
+البحث عن ملاعب
+
+التوجيه لنوع الملعب
+
+فتح نموذج إضافة ملعب
+
+lib/screens/stadiums/stadiums_list_screen.dart
+الوظيفة: عرض قائمة الملاعب
+
+المكونات:
+
+شريط الفلاتر (نوع، مدينة، سعر، مميزات)
+
+GridView للملاعب
+
+زر "إعادة تعيين الفلاتر"
+
+مؤشر التحميل
+
+المنطق:
+
+تحميل الملاعب عند الفتح
+
+تحديث العرض عند تغيير الفلاتر
+
+Pagination للنتائج
+
+lib/screens/stadiums/stadium_detail_screen.dart
+الوظيفة: عرض تفاصيل الملعب
+
+الأقسام:
+
+صور الملعب (Slider)
+
+معلومات أساسية (اسم، نوع، موقع)
+
+المميزات
+
+جدول المواعيد (DayChips + SlotButtons)
+
+خرائط Google
+
+مراجعات المستخدمين
+
+التفاعلات:
+
+اختيار تاريخ وموعد
+
+فتح نموذج الحجز
+
+الاتجاه للموقع
+
+ج. شاشات اللاعب
+lib/screens/player/dashboard_screen.dart
+الوظيفة: لوحة تحكم اللاعب
+
+الإحصائيات:
+
+عدد الحجوزات القادمة
+
+طلبات لاعبين نشطة
+
+إشعارات غير مقروءة
+
+القوائم:
+
+حجوزات قريبة
+
+طلبات لاعبين مفتوحة
+
+نشاط حديث
+
+lib/screens/player/bookings_screen.dart
+الوظيفة: إدارة حجوزات اللاعب
+
+التصنيفات:
+
+القادمة
+
+السابقة
+
+الملغاة
+
+الإجراءات:
+
+إلغاء حجز (حسب السياسة)
+
+دفع باقي المبلغ
+
+إعادة حجز
+
+lib/screens/player/notifications_screen.dart
+الوظيفة: عرض الإشعارات
+
+الأنواع:
+
+تأكيد حجز
+
+طلب لاعبين
+
+تحديثات دفع
+
+إشعارات نظام
+
+الإجراءات:
+
+تعليم كمقروء
+
+حذف
+
+التوجيه للشاشة ذات الصلة
+
+lib/screens/player/create_request_screen.dart
+الوظيفة: إنشاء طلب لاعبين
+
+الحقول:
+
+الملعب (اختياري)
+
+التاريخ والوقت
+
+عدد اللاعبين المطلوبين
+
+الفئة العمرية
+
+المستوى
+
+ملاحظات
+
+التحقق:
+
+الحد الأدنى 2 لاعبين
+
+تاريخ في المستقبل
+
+د. شاشات الموظف
+lib/screens/staff/dashboard_screen.dart
+الوظيفة: نظرة عامة على ملاعب الموظف
+
+لكل ملعب:
+
+حجوزات اليوم
+
+طلبات لاعبين
+
+إيرادات اليوم
+
+إجراءات سريعة:
+
+إضافة حجز
+
+إدارة الطلبات
+
+عرض التقارير
+
+lib/screens/staff/bookings_screen.dart
+الوظيفة: إدارة حجوزات الملعب
+
+التصنيفات:
+
+حجوزات اليوم
+
+حجوزات الأسبوع
+
+حجوزات معلقة
+
+الإجراءات:
+
+إنشاء حجز للعميل
+
+تأكيد/إلغاء حجز
+
+تعديل بيانات الحجز
+
+هـ. شاشات المالك
+lib/screens/owner/dashboard_screen.dart
+الوظيفة: نظرة على جميع الملاعب
+
+الإحصائيات:
+
+إجمالي الإيرادات
+
+معدل الإشغال
+
+عدد الحجوزات
+
+المبيعات الشهرية
+
+التحليلات:
+
+مخطط الإيرادات
+
+أوقات الذروة
+
+أكثر الملاعب إشغالاً
+
+lib/screens/owner/stadium_dashboard_screen.dart
+الوظيفة: إدارة ملعب معين
+
+الأقسام:
+
+معلومات الملعب
+
+إدارة الموظفين
+
+جدول المواعيد
+
+الأسعار والعروض
+
+الإجراءات:
+
+إضافة/إزالة موظف
+
+تعديل أسعار
+
+إدارة المميزات
+
+و. شاشات المدير
+lib/screens/admin/dashboard_screen.dart
+الوظيفة: لوحة تحكم شاملة
+
+المؤشرات:
+
+إجمالي المستخدمين
+
+إجمالي الملاعب
+
+إجمالي الإيرادات
+
+معدل الإلغاء
+
+الروابط السريعة:
+
+إدارة المستخدمين
+
+إدارة الكوبونات
+
+التقارير
+
+إعدادات النظام
+
+lib/screens/admin/users_screen.dart
+الوظيفة: إدارة المستخدمين
+
+الإجراءات:
+
+البحث عن مستخدم
+
+تعديل الأدوار
+
+حظر/إلغاء حظر
+
+عرض تاريخ النشاط
+
+التصفية: حسب الدور، الحالة، التاريخ
+
+6. الـ Widgets المخصصة
+أ. عامة
+lib/widgets/common/app_bar.dart
+الوظيفة: شريط تطبيق مخصص
+
+الحالات:
+
+مع زر رجوع
+
+مع عنوان
+
+مع إجراءات إضافية
+
+مع شريط بحث
+
+التخصيص: لون، ارتفاع، ظل
+
+lib/widgets/common/input_field.dart
+الوظيفة: حقل إدخال موحد
+
+المميزات:
+
+تسمية
+
+نص مساعد
+
+خطأ
+
+أيقونة
+
+قناع إدخال
+
+التحقق في الوقت الحقيقي
+
+lib/widgets/common/day_chips.dart
+الوظيفة: اختيار الأيام
+
+الميزات:
+
+عرض 7 أيام قادمة
+
+تمييز اليوم المختار
+
+تعطيل أيام غير متاحة
+
+تحديث Slots عند التغيير
+
+lib/widgets/common/slot_button.dart
+الوظيفة: زر موعد
+
+الحالات:
+
+متاح (أخضر)
+
+محجوز (أحمر)
+
+ممتلئ (رمادي)
+
+خاص بي (أزرق)
+
+المعلومات: الوقت، السعر، حالة الإشغال
+
+ب. الملاعب
+lib/widgets/stadiums/stadium_card.dart
+الوظيفة: بطاقة عرض ملعب
+
+المحتوى:
+
+صورة
+
+اسم ونوع
+
+المميزات (أيقونات)
+
+السعر
+
+التقييم
+
+المسافة
+
+التفاعل: النقر لعرض التفاصيل
+
+lib/widgets/stadiums/slot_picker.dart
+الوظيفة: منتقي المواعيد
+
+المكونات:
+
+DayCips للأيام
+
+Grid من SlotButtons
+
+ملخص الاختيار
+
+زر التالي
+
+ج. الحجوزات
+lib/widgets/bookings/booking_card.dart
+الوظيفة: بطاقة حجز
+
+الحالات:
+
+مؤكد: معلومات كاملة + QR
+
+معلق: زر دفع
+
+ملغى: سبب الإلغاء
+
+الإجراءات: إلغاء، دفع، مشاركة
+
+lib/widgets/bookings/booking_modal.dart
+الوظيفة: نافذة حجز
+
+الخطوات:
+
+تأكيد التفاصيل
+
+بيانات الحاجز
+
+الدفع
+
+التحقق: توفر الموعد، صحة البيانات
+
+د. اللاعبين
+lib/widgets/player/request_card.dart
+الوظيفة: بطاقة طلب لاعبين
+
+المعلومات:
+
+الملعب والتاريخ
+
+اللاعبون المطلوبون/المنضمون
+
+الفئة والمستوى
+
+الإجراءات: انضمام، مغادرة، مشاركة
+
+lib/widgets/player/create_request_modal.dart
+الوظيفة: إنشاء طلب جديد
+
+الحقول:
+
+اختيار ملعب
+
+التاريخ والوقت
+
+تفاصيل الفريق
+
+ملاحظات خاصة
+
+7. ملفات التكوين والمساعدة
+pubspec.yaml
+الوظيفة: تعريف التبعيات والتكوين
+
+التبعيات الرئيسية:
+
+provider: إدارة الحالة
+
+http: اتصال API
+
+shared_preferences: تخزين محلي
+
+firebase_messaging: إشعارات
+
+google_maps_flutter: خرائط
+
+url_launcher: فتح روابط
+
+intl: تنسيق التواريخ
+
+lib/utils/constants.dart
+الوظيفة: الثوابت العامة
+
+المحتوى:
+
+ألوان التطبيق
+
+أحجام الخطوط
+
+روابط API
+
+رسائل الخطأ
+
+حدود التحقق
+
+lib/utils/validators.dart
+الوظيفة: دوال التحقق
+
+الدوال:
+
+validateEmail(): تحقق من البريد
+
+validatePhone(): تحقق من الهاتف
+
+validatePassword(): تحقق من كلمة المرور
+
+validateNotEmpty(): تحقق من عدم الفراغ
+
+lib/utils/helpers.dart
+الوظيفة: دوال مساعدة
+
+الدوال:
+
+formatDate(): تنسيق التاريخ
+
+formatCurrency(): تنسيق العملة
+
+calculateDeposit(): حساب العربون
+
+getTimeAgo(): وقت مضى
+
+8. تدفق البيانات (Data Flow)
+تسجيل الدخول
+text
+User Input → AuthService.login() → API Request → 
+Backend Validation → JWT Response → AuthProvider.updateUser() → 
+Navigate to Dashboard
+حجز ملعب
+text
+User selects slot → StadiumProvider.selectSlot() → 
+Open BookingModal → User fills data → BookingService.createBooking() → 
+Atomic check on backend → Create booking record → 
+If deposit > 0 → Redirect to Payment → 
+Payment success → Webhook confirms booking → 
+Update stadium slots → Send notifications
+طلب لاعبين
+text
+User creates request → PlayRequestService.create() → 
+Save to database → Show in Play Search → 
+Other users join → Update joiners list → 
+Creator accepts → Close request → 
+Notify all participants
+9. حالات خاصة ومعالجة الأخطاء
+الحالات الخاصة
+تضارب الحجوزات: Transaction مع Rollback
+
+انتهاء صلاحية الحجز المعلق: Cron job للتنظيف
+
+استخدام مزدوج للكوبون: Atomic decrement
+
+تغيير الدور: حفظ التفضيل محلياً
+
+عدم الاتصال: Offline mode للحجوزات المحلية
+
+معالجة الأخطاء
+أخطاء الشبكة: إعادة المحاولة التلقائية
+
+أخطاء المصادقة: توجيه لشاشة تسجيل الدخول
+
+أخطاء الدفع: حفظ محلي وإعادة المحاولة
+
+أخطاء الخادم: رسالة مناسبة للمستخدم
+
+10. الاختبارات
+اختبارات الوحدة
+نماذج البيانات
+
+دوال المساعدة
+
+خدمات API
+
+اختبارات الواجهة
+تدفقات المستخدم الرئيسية
+
+التحقق من الصلاحيات
+
+استجابة للتطبيق
+
+اختبارات الأداء
+وقت تحميل الصفحات
+
+استهلاك الذاكرة
+
+استجابة تحت الضغط
+
+11. النشر والصيانة
+متطلبات النشر
+Flutter SDK ≥ 3.0
+
+iOS ≥ 12.0
+
+Android ≥ API 21
+
+Backend API متاح
+
+صيانة دورية
+تحديث التبعيات
+
+مراجعة الأمان
+
+تحسين الأداء
+
+تحديث المحتوى
+
+ملاحظات للفريق
+الهيكل قابل للتوسيع: يمكن إضافة موديولات جديدة بسهولة
+
+الكود معياري: كل مكون مستقل وقابل لإعادة الاستخدام
+
+التوثيق المضمن: تعليقات توضح الغرض من كل دالة
+
+معايير الترميز: تسمية موحدة للجميع
+
+إدارة الحالة: استخدام Provider لتجنب إعادة البناء غير الضرورية
+
+هذا النظام مصمم ليكون سهل الصيانة والتطوير، مع فصل واضح للمسؤوليات ومسار بيانات منطقي.
