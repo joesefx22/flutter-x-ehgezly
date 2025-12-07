@@ -20,7 +20,8 @@ dependencies:
   # Local Storage
   shared_preferences: ^2.2.2
   
-  # Notifications
+  # Firebase
+  firebase_core: ^2.15.0
   firebase_messaging: ^14.7.5
   flutter_local_notifications: ^15.1.1
   
@@ -43,6 +44,18 @@ dependencies:
   # Animations
   lottie: ^2.7.0
   
+  # Image Picker
+  image_picker: ^0.8.7+4
+  
+  # PDF & Printing
+  printing: ^5.10.0
+  pdf: ^3.10.0
+  
+  # Charts & Data Grids
+  syncfusion_flutter_charts: ^22.2.10
+  syncfusion_flutter_datagrid: ^22.2.10
+  syncfusion_flutter_datepicker: ^22.2.10
+  
   # Utilities
   uuid: ^3.0.7
   equatable: ^2.0.5
@@ -60,6 +73,7 @@ flutter:
     - assets/icons/
     - assets/animations/
     - assets/translations/
+    - assets/fonts/
   
   fonts:
     - family: Cairo
@@ -67,3 +81,6 @@ flutter:
         - asset: assets/fonts/Cairo-Regular.ttf
         - asset: assets/fonts/Cairo-Bold.ttf
           weight: 700
+  
+  # Google Maps API (Android)
+  googleMapsApiKey: YOUR_ANDROID_API_KEY_HERE
